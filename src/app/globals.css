@@ -1,0 +1,208 @@
+@import "tailwindcss";
+
+@theme {
+  --color-accent: #c1502e;
+  --color-ink: #0b0b0c;
+  --color-ink-2: #101012;
+  --color-ink-3: #17171a;
+  --color-line: #26262a;
+  --color-bone: #f4f0e7;
+  --color-paper: #e7e1d4;
+  --color-ash: #a8a49a;
+  --color-oxide: #c1502e;
+  --color-moss: #7f8a6d;
+
+  --font-display: ui-serif, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial,
+    sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+html {
+  background-color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background-color: var(--color-ink);
+  color: var(--color-bone);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--color-oxide);
+  color: #fff;
+}
+
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-ash);
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 0.95;
+  letter-spacing: -0.01em;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+}
+
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.link {
+  position: relative;
+  text-decoration: none;
+}
+
+.link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 1px;
+  width: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.link:hover::after {
+  transform: scaleX(1);
+}
+
+.field {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--color-line);
+  color: var(--color-bone);
+  padding: 0.7rem 0.85rem;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.field:focus {
+  border-color: var(--color-oxide);
+}
+
+.field::placeholder {
+  color: #6f6b64;
+}
+
+select.field {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #a8a49a 50%),
+    linear-gradient(135deg, #a8a49a 50%, transparent 50%);
+  background-position: calc(100% - 18px) 55%, calc(100% - 13px) 55%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1px solid var(--color-oxide);
+  background: var(--color-oxide);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.btn:hover {
+  background: transparent;
+  color: var(--color-oxide);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--color-line);
+  padding: 0.65rem 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-bone);
+  cursor: pointer;
+  transition: border-color 0.25s ease, color 0.25s ease;
+}
+
+.btn-ghost:hover {
+  border-color: var(--color-oxide);
+  color: var(--color-oxide);
+}
+
+/* ------------------------------------------------------------------
+   Brand scope.
+   Every colour token in this file is a CSS custom property, so a single
+   wrapper class re-maps the whole palette while the layout, type scale
+   and components stay shared.
+   ------------------------------------------------------------------ */
+.brand-addis {
+  --color-accent: #c6912f;
+  --color-oxide: #c6912f;
+  --color-ink: #0d0b08;
+  --color-ink-2: #14110c;
+  --color-ink-3: #1c1811;
+  --color-line: #2c261c;
+  --color-bone: #f2ead9;
+  --color-paper: #e5dcc6;
+  --color-ash: #a79c86;
+  --color-moss: #6f8763;
+}
+
+html.light,
+html.light .brand-addis {
+  --color-accent: #8a5a16;
+  --color-oxide: #8a5a16;
+  --color-ink: #f4efe3;
+  --color-ink-2: #ece5d5;
+  --color-ink-3: #e2d9c5;
+  --color-line: #cbc0a8;
+  --color-bone: #1c1811;
+  --color-paper: #fffaf0;
+  --color-ash: #6b6252;
+  --color-moss: #4f6546;
+}
+
+.marquee {
+  animation: slide 34s linear infinite;
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}

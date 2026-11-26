@@ -1,0 +1,318 @@
+import { and, asc, desc, eq, sql } from "drizzle-orm";
+
+import { db } from "@/db";
+import { artists, printOptions, reservations, submissions, works } from "@/db/schema";
+import { ensureCatalogue } from "@/db/seed";
+import type { BrandKey } from "@/lib/brand";
+import type { CatalogueOption, OptionKind, SizeKey } from "@/lib/pricing";
+
+export type ArtistRow = typeof artists.$inferSelect;
+export type WorkRow = typeof works.$inferSelect;
+
+export type WorkWithArtist = {
+  work: WorkRow;
+  artist: ArtistRow;
+};
+
+export type ReservationRow = typeof reservations.$inferSelect & {
+  workTitle: string;
+  artistName: string;
+  artistRate: number;
+};
+
+export async function getCatalogueOptions(): Promise<CatalogueOption[]> {
+  await ensureCatalogue();
+  const rows = await db
+    .select()
+    .from(printOptions)
+    .where(eq(printOptions.active, true))
+    .orderBy(asc(printOptions.kind), asc(printOptions.sortOrder));
+
+  return rows.map((row) => ({
+    slug: row.slug,
+    kind: row.kind as OptionKind,
+    name: row.name,
+    blurb: row.blurb,
+    addCents: row.addCents,
+    costCents: row.costCents,
+  }));
+}
+
+export async function getWorks(filters?: {
+  artistSlug?: string;
+  discipline?: string;
+  includeAll?: boolean;
+  brand?: BrandKey;
+}): Promise<WorkWithArtist[]> {
+  await ensureCatalogue();
+  const conditions = [];
+  if (!filters?.includeAll) conditions.push(sql`${works.status} <> 'draft'`);
+  if (filters?.brand) conditions.push(eq(works.brand, filters.brand));
+  if (filters?.artistSlug) conditions.push(eq(artists.slug, filters.artistSlug));
+  if (filters?.discipline) conditions.push(eq(works.discipline, filters.discipline));
+
+  const rows = await db
+    .select({ work: works, artist: artists })
+    .from(works)
+    .innerJoin(artists, eq(works.artistId, artists.id))
+    .where(conditions.length ? and(...conditions) : undefined)
+    .orderBy(asc(works.sortOrder), asc(works.id));
+
+  return rows;
+}
+
+export async function getWorkBySlug(
+  slug: string,
+  brand?: BrandKey,
+): Promise<WorkWithArtist | null> {
+  await ensureCatalogue();
+  const rows = await db
+    .select({ work: works, artist: artists })
+    .from(works)
+    .innerJoin(artists, eq(works.artistId, artists.id))
+    .where(
+      brand
+        ? and(eq(works.slug, slug), eq(works.brand, brand))
+        : eq(works.slug, slug),
+    )
+    .limit(1);
+
+  return rows[0] ?? null;
+}
+
+export async function getArtistsWithCounts(
+  brand?: BrandKey,
+): Promise<(ArtistRow & { workCount: number; editionsSold: number })[]> {
+  await ensureCatalogue();
+  const brandFilter = brand ? eq(artists.brand, brand) : undefined;
+  const rows = await db
+    .select({
+      artist: artists,
+      workCount: sql<number>`count(${works.id})::int`,
+      editionsSold: sql<number>`coalesce(sum(${works.editionSold}), 0)::int`,
+    })
+    .from(artists)
+    .leftJoin(works, and(eq(works.artistId, artists.id), brand ? eq(works.brand, brand) : undefined))
+    .where(brandFilter)
+    .groupBy(artists.id)
+    .orderBy(asc(artists.sortOrder));
+
+  return rows.map((row) => ({
+    ...row.artist,
+    workCount: row.workCount,
+    editionsSold: row.editionsSold,
+  }));
+}
+
+export async function getArtistBySlug(slug: string, brand?: BrandKey) {
+  await ensureCatalogue();
+  const rows = await db
+    .select()
+    .from(artists)
+    .where(
+      brand
+        ? and(eq(artists.slug, slug), eq(artists.brand, brand))
+        : eq(artists.slug, slug),
+    )
+    .limit(1);
+  const artist = rows[0];
+  if (!artist) return null;
+  const artistWorks = await getWorks({
+    artistSlug: slug,
+    includeAll: true,
+    brand: artist.brand as BrandKey,
+  });
+  return { artist, works: artistWorks };
+}
+
+export type ReservationInput = {
+  brand: BrandKey;
+  workId: number;
+  size: SizeKey;
+  paperSlug: string;
+  mountSlug: string | null;
+  frameSlug: string | null;
+  quantity: number;
+  unitCents: number;
+  productionCents: number;
+  royaltyCents: number;
+  studioCents: number;
+  collectorName: string;
+  collectorEmail: string;
+  note: string | null;
+};
+
+/** A short, self-identifying prefix for every certificate. */
+function reservationCode(brand: BrandKey): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let tail = "";
+  for (let i = 0; i < 5; i += 1) {
+    tail += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return `${brand === "addis" ? "ADD" : "PW"}-${tail}`;
+}
+
+export async function createReservation(input: ReservationInput) {
+  await ensureCatalogue();
+  const code = reservationCode(input.brand);
+  const { size, ...rest } = input;
+  const rows = await db
+    .insert(reservations)
+    .values({ ...rest, sizeKey: size, code })
+    .returning();
+
+  await db
+    .update(works)
+    .set({ editionSold: sql`least(${works.editionSold} + ${input.quantity}, ${works.editionSize})` })
+    .where(eq(works.id, input.workId));
+
+  return rows[0];
+}
+
+export async function getReservations(
+  limit = 25,
+  brand?: BrandKey,
+): Promise<ReservationRow[]> {
+  await ensureCatalogue();
+  const rows = await db
+    .select({
+      reservation: reservations,
+      workTitle: works.title,
+      artistName: artists.name,
+      artistRate: artists.royaltyRate,
+    })
+    .from(reservations)
+    .innerJoin(works, eq(reservations.workId, works.id))
+    .innerJoin(artists, eq(works.artistId, artists.id))
+    .where(brand ? eq(reservations.brand, brand) : undefined)
+    .orderBy(desc(reservations.createdAt))
+    .limit(limit);
+
+  return rows.map((row) => ({
+    ...row.reservation,
+    workTitle: row.workTitle,
+    artistName: row.artistName,
+    artistRate: row.artistRate,
+  }));
+}
+
+export type SubmissionInput = {
+  brand: BrandKey;
+  artistName: string;
+  email: string;
+  city: string | null;
+  practice: string | null;
+  title: string;
+  medium: string | null;
+  editionIdea: string | null;
+  statement: string | null;
+  portfolio: string | null;
+  track: string;
+};
+
+export async function createSubmission(input: SubmissionInput) {
+  await ensureCatalogue();
+  const rows = await db.insert(submissions).values(input).returning();
+  return rows[0];
+}
+
+export async function getSubmissions(limit = 20, brand?: BrandKey) {
+  await ensureCatalogue();
+  return db
+    .select()
+    .from(submissions)
+    .where(brand ? eq(submissions.brand, brand) : undefined)
+    .orderBy(desc(submissions.createdAt))
+    .limit(limit);
+}
+
+export async function getReservationByCode(
+  code: string,
+  brand?: BrandKey,
+): Promise<(ReservationRow & { workSlug: string; editionSize: number }) | null> {
+  await ensureCatalogue();
+  const rows = await db
+    .select({
+      reservation: reservations,
+      workTitle: works.title,
+      workSlug: works.slug,
+      editionSize: works.editionSize,
+      artistName: artists.name,
+      artistRate: artists.royaltyRate,
+    })
+    .from(reservations)
+    .innerJoin(works, eq(reservations.workId, works.id))
+    .innerJoin(artists, eq(works.artistId, artists.id))
+    .where(
+      brand
+        ? and(
+            eq(reservations.code, code.toUpperCase().trim()),
+            eq(reservations.brand, brand),
+          )
+        : eq(reservations.code, code.toUpperCase().trim()),
+    )
+    .limit(1);
+
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    ...row.reservation,
+    workTitle: row.workTitle,
+    workSlug: row.workSlug,
+    editionSize: row.editionSize,
+    artistName: row.artistName,
+    artistRate: row.artistRate,
+  };
+}
+
+export type StudioTotals = {
+  reservations: number;
+  grossCents: number;
+  artistCents: number;
+  studioCents: number;
+  editionsSold: number;
+  artistCount: number;
+  workCount: number;
+  submissions: number;
+};
+
+export async function getStudioTotals(brand?: BrandKey): Promise<StudioTotals> {
+  await ensureCatalogue();
+  const salesFilter = brand ? eq(reservations.brand, brand) : undefined;
+  const workBrand = brand ?? "addis";
+
+  const [sales] = await db
+    .select({
+      count: sql<number>`count(*)::int`,
+      gross: sql<number>`coalesce(sum(${reservations.unitCents} * ${reservations.quantity}), 0)::int`,
+      artist: sql<number>`coalesce(sum(${reservations.royaltyCents} * ${reservations.quantity}), 0)::int`,
+      studio: sql<number>`coalesce(sum(${reservations.studioCents} * ${reservations.quantity}), 0)::int`,
+    })
+    .from(reservations)
+    .where(salesFilter);
+
+  const [catalogue] = await db
+    .select({
+      artists: sql<number>`(select count(*) from ${artists} where brand = ${workBrand})::int`,
+      works: sql<number>`(select count(*) from ${works} where brand = ${workBrand})::int`,
+      sold: sql<number>`(select coalesce(sum(edition_sold), 0) from ${works} where brand = ${workBrand})::int`,
+    })
+    .from(artists)
+    .limit(1);
+
+  const [open] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(submissions)
+    .where(brand ? eq(submissions.brand, brand) : undefined);
+
+  return {
+    reservations: sales?.count ?? 0,
+    grossCents: sales?.gross ?? 0,
+    artistCents: sales?.artist ?? 0,
+    studioCents: sales?.studio ?? 0,
+    editionsSold: catalogue?.sold ?? 0,
+    artistCount: catalogue?.artists ?? 0,
+    workCount: catalogue?.works ?? 0,
+    submissions: open?.count ?? 0,
+  };
+}
