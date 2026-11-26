@@ -86,6 +86,7 @@ export const reservations = pgTable("reservations", {
   mountSlug: text("mount_slug"),
   frameSlug: text("frame_slug"),
   quantity: integer("quantity").notNull().default(1),
+  editionNumber: integer("edition_number"),
   unitCents: integer("unit_cents").notNull(),
   productionCents: integer("production_cents").notNull(),
   royaltyCents: integer("royalty_cents").notNull(),
@@ -101,6 +102,19 @@ export const reservations = pgTable("reservations", {
 });
 
 /** Open submissions — the "send us your work" funnel. */
+/** Collectors waiting for a closed edition to return. */
+export const waitlist = pgTable("waitlist", {
+  id: serial("id").primaryKey(),
+  workId: integer("work_id")
+    .notNull()
+    .references(() => works.id, { onDelete: "cascade" }),
+  collectorName: text("collector_name").notNull(),
+  collectorEmail: text("collector_email").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const submissions = pgTable("submissions", {
   id: serial("id").primaryKey(),
   artistName: text("artist_name").notNull(),

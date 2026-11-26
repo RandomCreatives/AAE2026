@@ -67,7 +67,7 @@ export default async function AddisHomePage() {
       <section className="border-b border-line">
         <div className="mx-auto grid max-w-[1400px] gap-10 px-5 py-16 md:grid-cols-12 md:px-10 md:py-24">
           <div className="md:col-span-7">
-            <p className="eyebrow text-oxide">Addis Ababa · est. 2026</p>
+            <p className="eyebrow text-oxide">Addis Ababa · a print house</p>
             <h1 className="display mt-6 text-5xl text-bone md:text-7xl lg:text-8xl">
               Editions from
               <br />
@@ -107,7 +107,7 @@ export default async function AddisHomePage() {
               </div>
               <div className="p-4">
                 <p className="display text-3xl text-oxide">{live.length}</p>
-                <p className="mono mt-1 text-ash">OPEN EDITIONS</p>
+                <p className="mono mt-1 text-ash">EDITIONS IN THE REGISTER</p>
               </div>
               <div className="border-r border-t border-line p-4">
                 <p className="display text-3xl text-oxide">
@@ -200,7 +200,7 @@ export default async function AddisHomePage() {
           </div>
           <div className="mt-8 flex flex-wrap items-center justify-between gap-4 border border-line p-5">
             <p className="text-sm text-ash">
-              {live.length} open editions · {totals.editionsSold} prints in the register
+              {live.length} numbered editions with places left · {totals.editionsSold} prints in the register
               · {artistRows.length} artists
             </p>
             <Link href="/works" className="btn-ghost">
@@ -365,7 +365,7 @@ export default async function AddisHomePage() {
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-ash">
               Cotton rag, photo rag, bamboo, baryta or riso newsprint. 8-ply
               conservation mount or a float on board. Aluminium, oak, stained ash or
-              walnut behind museum glass. Each one changes the price, the weight and
+              walnut — museum glass only on the walnut. Each one changes the price, the weight and
               the room it belongs in — so each one is written down properly.
             </p>
             <div className="mt-8 grid gap-px border border-line bg-line sm:grid-cols-2">

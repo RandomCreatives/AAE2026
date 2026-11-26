@@ -97,10 +97,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <div className="border-t border-line">
               <div className="mx-auto flex max-w-[1400px] flex-col gap-2 px-5 py-5 mono text-[10px] tracking-[0.2em] text-ash md:flex-row md:items-center md:justify-between md:px-10">
                 <span>
-                  {brand.legal} · {brand.email}
+                  {brand.legal} ·{" "}
+                  <a className="link text-oxide" href={`mailto:${brand.email}`}>
+                    {brand.email}
+                  </a>
                 </span>
                 <span>
-                  COPYRIGHT STAYS WITH THE ARTIST · EDITIONS NUMBERED AND CLOSED
+                  <Link className="link hover:text-bone" href="/status">
+                    Check a submission
+                  </Link>{" "}
+                  · COPYRIGHT STAYS WITH THE ARTIST
                 </span>
               </div>
             </div>

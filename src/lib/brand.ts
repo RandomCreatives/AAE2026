@@ -44,7 +44,7 @@ export const ADDIS: Brand = {
   base: "",
   scale: 0.012,
   house: "the editions house",
-  region: "Addis Ababa · Nairobi · Khartoum · Accra",
+  region: "Addis Ababa · Gondar · Nairobi · Khartoum",
 };
 
 export function getBrand(): Brand {

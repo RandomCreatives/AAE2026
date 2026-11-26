@@ -310,8 +310,8 @@ export default async function AddisModelPage() {
               </h2>
               <p className="mt-6 max-w-xl text-lg leading-relaxed text-ash">
                 The storefront, the pricing engine, the register and the submissions
-                funnel are all live and reading from the same database as our sister
-                house. What is left to decide is the deal, not the technology.
+                funnel are all live and reading from one database. What is left to
+                decide is the deal, not the technology.
               </p>
               <div className="mt-8 grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-4">
                 {[
@@ -340,7 +340,7 @@ export default async function AddisModelPage() {
                 <p className="eyebrow text-oxide">Also open for debate</p>
                 <ul className="mt-5 space-y-4">
                   {[
-                    "Whether founding artists take a slice of the house instead of 50% forever",
+                    "Whether founding artists also take a share of the house's net",
                     "Do we sell originals on the same shelf, or editions only",
                     "Whether the first drop is four works or eight",
                     "Artist's proofs: how many, and for whom",

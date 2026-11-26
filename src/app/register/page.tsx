@@ -1,16 +1,20 @@
 import Link from "next/link";
 
 import { ADDIS, brandMoney } from "@/lib/brand";
-import { getReservations } from "@/lib/queries";
-import { getReservationByCode } from "@/lib/queries";
-import { getWorks } from "@/lib/queries";
+import {
+  getCatalogueOptions,
+  getReservationByCode,
+  getReservationCount,
+  getReservations,
+  getWorks,
+} from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "The Register — Addis Art Editions",
   description:
-    "Every print the house has ever made: its code, its edition number and the collector who holds it. Searchable by anyone.",
+    "Every numbered print the house has released: its code, edition number and holder. Searchable by anyone.",
 };
 
 export default async function AddisRegisterPage({
@@ -22,14 +26,15 @@ export default async function AddisRegisterPage({
   const raw = Array.isArray(params.code) ? params.code[0] : params.code;
   const code = raw?.trim() ?? "";
 
-  const [ledger, works, found] = await Promise.all([
+  const [ledger, works, found, reservationCount, options] = await Promise.all([
     getReservations(30, "addis"),
-    getWorks({ brand: "addis", includeAll: true }),
+    getWorks({ brand: "addis" }),
     code ? getReservationByCode(code, "addis") : Promise.resolve(null),
+    getReservationCount("addis"),
+    getCatalogueOptions(),
   ]);
 
   const money = (cents: number) => brandMoney(ADDIS, cents);
-  const addisLedger = ledger;
   const counts = works.reduce(
     (acc, row) => {
       acc.claimed += row.work.editionSold;
@@ -38,6 +43,31 @@ export default async function AddisRegisterPage({
     },
     { claimed: 0, total: 0 },
   );
+
+  const optionName = (slug: string | null) =>
+    slug ? (options.find((o) => o.slug === slug)?.name ?? slug) : null;
+  const build = (row: {
+    sizeKey: string;
+    paperSlug: string;
+    frameSlug: string | null;
+  }) =>
+    [
+      row.sizeKey.toUpperCase(),
+      optionName(row.paperSlug),
+      optionName(row.frameSlug),
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  const editionLabel = (row: {
+    editionNumber: number | null;
+    quantity: number;
+  }) => {
+    if (row.editionNumber === null) return "—";
+    const last = row.editionNumber + row.quantity - 1;
+    return row.editionNumber === last
+      ? String(row.editionNumber)
+      : `${row.editionNumber}–${last}`;
+  };
 
   return (
     <div>
@@ -50,29 +80,27 @@ export default async function AddisRegisterPage({
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ash">
             A certificate can be photocopied. A sequential register cannot. Every print
-            this house has made is listed here with its code, edition number and holder
-            — and anyone can look one up.
+            this house has released is listed here with its code, edition number and
+            holder — and anyone can look one up.
           </p>
         </div>
       </section>
 
       <section className="border-b border-line bg-ink-2">
-        <div className="mx-auto grid max-w-[1400px] grid-cols-2 gap-px bg-line md:grid-cols-4">
+        <div className="mx-auto grid max-w-[1400px] grid-cols-1 gap-px bg-line sm:grid-cols-3">
           {[
-            ["Prints claimed", String(counts.claimed), "text-bone"],
-            ["Edition places", String(counts.total), "text-bone"],
-            ["Reservations logged", String(addisLedger.length), "text-bone"],
-            ["Numbers reused", "0", "text-oxide"],
-          ].map(([label, value, tone]) => (
+            ["Prints claimed", String(counts.claimed)],
+            ["Edition places", String(counts.total)],
+            ["Reservations logged", String(reservationCount)],
+          ].map(([label, value]) => (
             <div key={label} className="bg-ink p-5">
               <p className="eyebrow">{label}</p>
-              <p className={`display mt-3 text-3xl ${tone}`}>{value}</p>
+              <p className="display mt-3 text-3xl text-bone">{value}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* LOOKUP */}
       <section className="mx-auto max-w-[1400px] px-5 py-12 md:px-10 md:py-16">
         <div className="grid gap-10 lg:grid-cols-12">
           <div className="lg:col-span-5">
@@ -80,14 +108,14 @@ export default async function AddisRegisterPage({
               <p className="eyebrow text-oxide">Verify an edition</p>
               <p className="mt-4 text-sm leading-relaxed text-ash">
                 Enter the code from the certificate — it looks like{" "}
-                <span className="text-bone">PW-XXXXX</span> — or the number on the
-                print. The register answers with the work, the artist and the holder.
+                <span className="text-bone">ADD-XXXXX</span>. The register answers with
+                the work, the artist, the edition number and the holder.
               </p>
               <form method="get" action="/register" className="mt-6 flex gap-2">
                 <input
                   name="code"
                   defaultValue={code}
-                  placeholder="PW-XXXXX"
+                  placeholder="ADD-XXXXX"
                   className="field mono uppercase"
                   aria-label="Edition code"
                 />
@@ -105,11 +133,19 @@ export default async function AddisRegisterPage({
                       {[
                         ["Work", found.workTitle],
                         ["Artist", found.artistName],
-                        ["Build", `${found.sizeKey.toUpperCase()} · ${found.paperSlug}${found.frameSlug ? ` · ${found.frameSlug}` : ""}`],
+                        ["Edition", editionLabel(found)],
+                        ["Build", build(found)],
                         ["Quantity", String(found.quantity)],
                         ["Held for", found.collectorName],
-                        ["Logged", new Date(found.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })],
-                        ["Status", found.status],
+                        [
+                          "Logged",
+                          new Date(found.createdAt).toLocaleDateString("en-GB", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                          }),
+                        ],
+                        ["Status", found.status === "reserved" ? "Held" : found.status],
                       ].map(([k, v]) => (
                         <div key={k} className="flex items-baseline justify-between py-3">
                           <span className="mono text-ash">{k.toUpperCase()}</span>
@@ -132,9 +168,9 @@ export default async function AddisRegisterPage({
                     <p className="eyebrow text-oxide">No match</p>
                     <p className="mt-3 text-sm leading-relaxed text-bone">
                       Nothing in this house&apos;s register carries{" "}
-                      <span className="mono">{code.toUpperCase()}</span>. That does not
-                      make the print in your hands a fake — it may belong to our sister
-                      house — but it was not made by us.
+                      <span className="mono">{code.toUpperCase()}</span>. Check the code
+                      on the certificate, or write to the house if you think it should be
+                      here.
                     </p>
                     <Link href="/register" className="btn-ghost mt-5">
                       Clear
@@ -155,16 +191,15 @@ export default async function AddisRegisterPage({
             </div>
           </div>
 
-          {/* LEDGER */}
           <div className="lg:col-span-7">
             <div className="flex flex-col gap-3 border-t border-line pt-6 md:flex-row md:items-end md:justify-between">
               <h2 className="display text-3xl text-bone md:text-4xl">
                 The open ledger
               </h2>
-              <p className="mono text-ash">MOST RECENT FIRST</p>
+              <p className="mono text-ash">MOST RECENT 30 FIRST</p>
             </div>
 
-            {addisLedger.length === 0 ? (
+            {ledger.length === 0 ? (
               <div className="mt-6 border border-line p-10 text-center">
                 <p className="display text-2xl text-bone">The register is empty.</p>
                 <p className="mt-3 text-sm text-ash">
@@ -177,26 +212,32 @@ export default async function AddisRegisterPage({
             ) : (
               <div className="mt-6 overflow-x-auto border border-line">
                 <table className="w-full min-w-[640px] border-collapse text-left">
+                  <caption className="sr-only">
+                    The thirty most recent reservations, newest first
+                  </caption>
                   <thead className="bg-ink-2">
                     <tr>
-                      {["Code", "Work", "Artist", "Build", "No.", "Retail"].map((h) => (
-                        <th key={h} className="mono border-b border-line p-3 text-ash">
-                          {h.toUpperCase()}
-                        </th>
-                      ))}
+                      {["Code", "Work", "Artist", "Build", "Edition", "Total"].map(
+                        (h) => (
+                          <th
+                            key={h}
+                            scope="col"
+                            className="mono border-b border-line p-3 text-ash"
+                          >
+                            {h.toUpperCase()}
+                          </th>
+                        ),
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {addisLedger.map((row) => (
+                    {ledger.map((row) => (
                       <tr key={row.id} className="border-b border-line last:border-0">
                         <td className="p-3 mono text-oxide">{row.code}</td>
                         <td className="p-3 text-sm text-bone">{row.workTitle}</td>
                         <td className="p-3 text-sm text-ash">{row.artistName}</td>
-                        <td className="p-3 mono text-ash">
-                          {row.sizeKey.toUpperCase()} · {row.paperSlug}
-                          {row.frameSlug ? ` · ${row.frameSlug}` : ""}
-                        </td>
-                        <td className="p-3 mono text-bone">{row.quantity}</td>
+                        <td className="p-3 mono text-ash">{build(row)}</td>
+                        <td className="p-3 mono text-bone">{editionLabel(row)}</td>
                         <td className="p-3 mono text-bone">
                           {money(row.unitCents * row.quantity)}
                         </td>
@@ -208,8 +249,11 @@ export default async function AddisRegisterPage({
             )}
 
             <p className="mt-4 mono text-ash">
-              COLLECTOR NAMES IN THE LEDGER ARE REDACTED TO INITIALS ON REQUEST, AT ANY
-              TIME, RETROACTIVELY.
+              WANT YOUR NAME OUT OF THE PUBLIC LOOKUP? WRITE TO{" "}
+              <a className="link text-oxide" href={`mailto:${ADDIS.email}`}>
+                {ADDIS.email}
+              </a>
+              .
             </p>
           </div>
         </div>

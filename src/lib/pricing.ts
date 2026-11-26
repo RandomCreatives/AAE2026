@@ -51,9 +51,9 @@ export type QuoteInput = {
   basePriceCents: number;
   royaltyRate: number;
   /**
-   * Catalogue prices are authored in the studio's operating currency. A sister
-   * house selling abroad passes a scale so every line — retail, production,
-   * royalty, studio net — lands in the collector's currency.
+   * Catalogue prices are authored in the studio's operating currency. The house
+   * passes a scale so every line — retail, production, royalty, studio net —
+   * lands in the collector's currency.
    */
   scale?: number;
   size: SizeKey;

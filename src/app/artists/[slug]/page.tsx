@@ -39,19 +39,27 @@ export default async function AddisArtistPage({
   const paper = findOption(options, "paper", "cotton-matt") ?? options[0];
   const money = (cents: number) => brandMoney(ADDIS, cents);
 
-  const base = artistWorks[0]?.work.basePriceCents ?? 500_000;
-  const entry = quoteFor(ADDIS, {
-    basePriceCents: base,
-    royaltyRate: artist.royaltyRate,
-    size: "a4",
-    paper,
-  });
-  const sample = quoteFor(ADDIS, {
-    basePriceCents: base,
-    royaltyRate: artist.royaltyRate,
-    size: "a2",
-    paper,
-  });
+  const cheapest = live.reduce<(typeof live)[number] | null>(
+    (best, row) =>
+      !best || row.work.basePriceCents < best.work.basePriceCents ? row : best,
+    null,
+  );
+  const entry = cheapest
+    ? quoteFor(ADDIS, {
+        basePriceCents: cheapest.work.basePriceCents,
+        royaltyRate: artist.royaltyRate,
+        size: "a4",
+        paper,
+      })
+    : null;
+  const sample = cheapest
+    ? quoteFor(ADDIS, {
+        basePriceCents: cheapest.work.basePriceCents,
+        royaltyRate: artist.royaltyRate,
+        size: "a2",
+        paper,
+      })
+    : null;
 
   return (
     <div>
@@ -92,7 +100,12 @@ export default async function AddisArtistPage({
                 {[
                   ["Copyright", "Stays with the artist"],
                   ["Royalty", `${artist.royaltyRate}% of gross margin`],
-                  ["Entry price", `from ${money(entry.retailCents)}`],
+                  [
+                    "Entry price",
+                    entry && cheapest
+                      ? `from ${cheapest.work.title} at A4 · ${money(entry.retailCents)}`
+                      : "On request",
+                  ],
                   ["Upfront cost", "None"],
                   [
                     "Prints claimed",
@@ -106,11 +119,13 @@ export default async function AddisArtistPage({
                 ))}
               </div>
             </div>
-            <p className="mono mt-4 text-ash">
-              An unframed A2 on house paper pays{" "}
-              <span className="text-oxide">{money(sample.royaltyCents)}</span> per
-              print.
-            </p>
+            {sample ? (
+              <p className="mono mt-4 text-ash">
+                An unframed A2 on house paper pays{" "}
+                <span className="text-oxide">{money(sample.royaltyCents)}</span> per
+                print.
+              </p>
+            ) : null}
           </div>
         </div>
       </section>

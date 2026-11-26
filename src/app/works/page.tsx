@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Editions — Addis Art Editions",
   description:
-    "Every open edition on the Addis shelf, printable in any size on any paper in any frame.",
+    "Every numbered edition on the Addis shelf, printable in any size on any paper in any frame.",
 };
 
 function normalize(value: string | string[] | undefined): string | undefined {

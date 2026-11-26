@@ -52,13 +52,18 @@ export default async function AddisSubmitPage({
             <span className="italic text-ash"> Keep everything.</span>
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ash">
-            The shelf is closed and reviewed in small batches, so the artists already on
-            it keep their share of attention. This form registers interest — it is not a
+            The shelf is reviewed in small batches, so the artists already on it keep
+            their share of attention. This form registers interest — it is not a
             signature, it costs nothing, and it commits you to nothing.
           </p>
           <p className="mono mt-6 text-ash">
-            {ADDIS.region} · ANYWHERE IN THE REGION CONSIDERED · WORKING IN ENGLISH OR
-            AMHARIC
+            {ADDIS.region} · ANYWHERE IN THE REGION CONSIDERED · WORKING IN ENGLISH
+          </p>
+          <p className="mono mt-2 text-ash">
+            QUESTIONS FIRST?{" "}
+            <a className="link text-oxide" href={`mailto:${ADDIS.email}`}>
+              {ADDIS.email}
+            </a>
           </p>
         </div>
       </section>
@@ -109,7 +114,7 @@ export default async function AddisSubmitPage({
 
           <div className="lg:col-span-7">
             <SubmitWorkForm
-              initialTrack={raw ?? "b"}
+              initialTrack={raw ?? "a"}
               brand={ADDIS}
               thankYouHref="/works"
             />

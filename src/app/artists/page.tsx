@@ -43,12 +43,19 @@ export default async function AddisArtistsPage() {
         <div className="grid gap-6 lg:grid-cols-3">
           {artists.map((artist) => {
             const artistWorks = rows.filter((r) => r.artist.slug === artist.slug);
-            const entry = quoteFor(ADDIS, {
-              basePriceCents: artistWorks[0]?.work.basePriceCents ?? 500_000,
-              royaltyRate: artist.royaltyRate,
-              size: "a4",
-              paper,
-            });
+            const cheapest = artistWorks.reduce<(typeof artistWorks)[number] | null>(
+              (best, row) =>
+                !best || row.work.basePriceCents < best.work.basePriceCents ? row : best,
+              null,
+            );
+            const entry = cheapest
+              ? quoteFor(ADDIS, {
+                  basePriceCents: cheapest.work.basePriceCents,
+                  royaltyRate: artist.royaltyRate,
+                  size: "a4",
+                  paper,
+                })
+              : null;
             return (
               <Link
                 key={artist.slug}
@@ -92,11 +99,14 @@ export default async function AddisArtistsPage() {
                     <p className="mono mt-1 text-ash">OF MARGIN</p>
                   </div>
                 </div>
-                <p className="mono mt-4 text-ash">
-                  ENTRY {money(entry.retailCents)} · ARTIST TAKES{" "}
-                  <span className="text-oxide">{money(entry.royaltyCents)}</span> PER
-                  PRINT
-                </p>
+                {entry && cheapest ? (
+                  <p className="mono mt-4 text-ash">
+                    FROM {cheapest.work.title} AT A4 · {money(entry.retailCents)} ·
+                    ARTIST TAKES{" "}
+                    <span className="text-oxide">{money(entry.royaltyCents)}</span> PER
+                    PRINT
+                  </p>
+                ) : null}
               </Link>
             );
           })}

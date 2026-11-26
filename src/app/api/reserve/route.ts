@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { getBrand, quoteFor, type BrandKey } from "@/lib/brand";
+import { getBrand, quoteFor } from "@/lib/brand";
 import { brandMoney } from "@/lib/brand";
 import { findOption, type SizeKey } from "@/lib/pricing";
 import {
   createReservation,
+  EditionClosedError,
   getCatalogueOptions,
   getWorkBySlug,
 } from "@/lib/queries";
@@ -48,17 +49,14 @@ export async function POST(request: Request) {
   const size = (body.size && SIZES.includes(body.size) ? body.size : "a2") as SizeKey;
   const quantity = Math.min(Math.max(Number(body.quantity) || 1, 1), 5);
 
-  const requested = getBrand();
-  const row = await getWorkBySlug(workSlug, requested.key);
-  if (!row || row.work.brand !== requested.key) {
+  const brand = getBrand();
+  const row = await getWorkBySlug(workSlug, brand.key);
+  if (!row) {
     return NextResponse.json(
       { error: "That work is not on this house's shelf." },
       { status: 404 },
     );
   }
-
-  const brand = getBrand();
-  const brandKey = brand.key as BrandKey;
 
   const remaining = row.work.editionSize - row.work.editionSold;
   if (row.work.status === "sold-out" || remaining <= 0) {
@@ -95,34 +93,52 @@ export async function POST(request: Request) {
     frame: frame ?? null,
   });
 
-  const reservation = await createReservation({
-    brand: brandKey,
-    workId: row.work.id,
-    size,
-    paperSlug: paper.slug,
-    mountSlug: mount?.slug ?? null,
-    frameSlug: frame?.slug ?? null,
-    quantity,
-    unitCents: quote.retailCents,
-    productionCents: quote.productionCents,
-    royaltyCents: quote.royaltyCents,
-    studioCents: quote.studioCents,
-    collectorName: collectorName.trim(),
-    collectorEmail: collectorEmail.trim(),
-    note: body.note?.trim() || null,
-  });
+  let reservation;
+  try {
+    reservation = await createReservation({
+      brand: brand.key,
+      workId: row.work.id,
+      size,
+      paperSlug: paper.slug,
+      mountSlug: mount?.slug ?? null,
+      frameSlug: frame?.slug ?? null,
+      quantity,
+      unitCents: quote.retailCents,
+      productionCents: quote.productionCents,
+      royaltyCents: quote.royaltyCents,
+      studioCents: quote.studioCents,
+      collectorName: collectorName.trim(),
+      collectorEmail: collectorEmail.trim(),
+      note: body.note?.trim() || null,
+    });
+  } catch (error) {
+    if (error instanceof EditionClosedError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
+  }
+
+  const firstNumber = reservation.editionNumber;
+  const lastNumber =
+    firstNumber === null ? null : firstNumber + reservation.quantity - 1;
 
   return NextResponse.json(
     {
       code: reservation.code,
       workTitle: row.work.title,
       artist: row.artist.name,
-      editionNumber: row.work.editionSold + 1,
+      editionNumber: firstNumber,
+      editionRange:
+        firstNumber === null
+          ? null
+          : firstNumber === lastNumber
+            ? String(firstNumber)
+            : `${firstNumber}–${lastNumber}`,
       editionSize: row.work.editionSize,
-      quantity,
-      retailCents: quote.retailCents * quantity,
-      royaltyCents: quote.royaltyCents * quantity,
-      retailLabel: brandMoney(brand, quote.retailCents * quantity),
+      quantity: reservation.quantity,
+      totalRetailCents: quote.retailCents * reservation.quantity,
+      totalRoyaltyCents: quote.royaltyCents * reservation.quantity,
+      retailLabel: brandMoney(brand, quote.retailCents * reservation.quantity),
     },
     { status: 201 },
   );

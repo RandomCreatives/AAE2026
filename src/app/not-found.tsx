@@ -9,7 +9,7 @@ export default function NotFound() {
         <span className="italic text-ash"> never existed.</span>
       </h1>
       <p className="mt-6 max-w-xl text-lg leading-relaxed text-ash">
-        Either the work has been retired, or the register has moved. Nothing here
+        Either the work has been retired, or the address has changed. Nothing here
         quietly disappears — a closed edition says so on its page.
       </p>
       <div className="mt-10 flex flex-wrap gap-4">

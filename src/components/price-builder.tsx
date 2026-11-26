@@ -123,9 +123,11 @@ export function PriceBuilder({
   const [result, setResult] = useState<{
     code: string;
     editionNumber: number;
+    editionRange: string | null;
     retailLabel: string;
     quantity: number;
   } | null>(null);
+  const [waitlisted, setWaitlisted] = useState<{ position: number } | null>(null);
 
   const paper = paperFor(paperSlug);
   const mount = mounts.find((m) => m.slug === mountSlug) ?? null;
@@ -168,6 +170,28 @@ export function PriceBuilder({
     setPending(true);
     setError(null);
     try {
+      if (soldOut) {
+        const response = await fetch("/api/waitlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workSlug: work.slug,
+            collectorName: name,
+            collectorEmail: email,
+          }),
+        });
+        const payload = (await response.json()) as {
+          error?: string;
+          position?: number;
+        };
+        if (!response.ok) {
+          setError(payload.error ?? "Something went wrong.");
+        } else {
+          setWaitlisted({ position: payload.position ?? 1 });
+        }
+        return;
+      }
+
       const response = await fetch("/api/reserve", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -188,6 +212,7 @@ export function PriceBuilder({
         error?: string;
         code?: string;
         editionNumber?: number;
+        editionRange?: string | null;
         retailLabel?: string;
         quantity?: number;
       };
@@ -197,6 +222,7 @@ export function PriceBuilder({
         setResult({
           code: payload.code,
           editionNumber: payload.editionNumber ?? 0,
+          editionRange: payload.editionRange ?? null,
           retailLabel: payload.retailLabel ?? "",
           quantity: payload.quantity ?? 1,
         });
@@ -430,7 +456,23 @@ export function PriceBuilder({
 
         {/* reserve */}
         <div className="mt-6 border border-line p-5">
-          {result ? (
+          {waitlisted ? (
+            <div className="border border-moss/50 bg-moss/10 p-6">
+              <p className="eyebrow text-moss">On the waiting list</p>
+              <p className="display mt-3 text-3xl text-bone">
+                No. {waitlisted.position}
+              </p>
+              <p className="mt-4 text-sm leading-relaxed text-ash">
+                You are {waitlisted.position} on the list for{" "}
+                <span className="text-bone">{work.title}</span>. This edition is closed,
+                so nothing is charged today. If a print returns, the house writes to{" "}
+                {email} in the order names were logged.
+              </p>
+              <a href={`${brand.base}/works`} className="btn-ghost mt-6">
+                Back to the shelf
+              </a>
+            </div>
+          ) : result ? (
             <div className="border border-moss/50 bg-moss/10 p-6">
               <p className="eyebrow text-moss">Reserved</p>
               <p className="display mt-3 text-3xl text-bone">{result.code}</p>
@@ -439,9 +481,9 @@ export function PriceBuilder({
                   ? `${result.quantity} prints`
                   : "One print"}{" "}
                 of <span className="text-bone">{work.title}</span> are held for you at{" "}
-                {result.retailLabel}. Edition number{" "}
+                {result.retailLabel}. Edition{" "}
                 <span className="text-bone">
-                  {result.editionNumber} / {work.editionSize}
+                  {result.editionRange ?? result.editionNumber} / {work.editionSize}
                 </span>{" "}
                 is now logged in the house register. The studio emails within 24 hours
                 to confirm paper, glazing and delivery.
@@ -473,13 +515,15 @@ export function PriceBuilder({
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
-              <textarea
-                className="field mt-3"
-                rows={2}
-                placeholder="Delivery city, or anything we should know"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
+              {soldOut ? null : (
+                <textarea
+                  className="field mt-3"
+                  rows={2}
+                  placeholder="Delivery city, or anything we should know"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                />
+              )}
               {error ? <p className="mono mt-3 text-oxide">{error}</p> : null}
               <button
                 type="button"
@@ -488,7 +532,9 @@ export function PriceBuilder({
                 className="btn mt-4 w-full disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {pending
-                  ? "Holding your print…"
+                  ? soldOut
+                    ? "Joining the list…"
+                    : "Holding your print…"
                   : soldOut
                     ? "Join the waiting list"
                     : `Reserve · ${money(quote.retailCents * quantity)}`}

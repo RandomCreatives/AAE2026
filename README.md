@@ -31,7 +31,7 @@ creates its tables and loads the Addis artists, editions and print options.
 
 | Path | Purpose |
 | --- | --- |
-| `/` | The house and a live receipt |
+| `/` | The house and a worked receipt |
 | `/works`, `/works/[slug]` | Editions and the framing/pricing builder |
 | `/artists`, `/artists/[slug]` | The roster |
 | `/craft` | Papers, mounts, frames, size ladder |
@@ -39,6 +39,7 @@ creates its tables and loads the Addis artists, editions and print options.
 | `/register` | Public provenance lookup by code |
 | `/about` | The model, rules, risks, calculator |
 | `/submit` | Artist submissions |
+| `/status` | Check a submission by its `SUB-…` reference |
 
 ## Where things live
 

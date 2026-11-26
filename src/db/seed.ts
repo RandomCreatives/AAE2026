@@ -62,6 +62,7 @@ const DDL = [
     mount_slug text,
     frame_slug text,
     quantity integer NOT NULL DEFAULT 1,
+    edition_number integer,
     unit_cents integer NOT NULL,
     production_cents integer NOT NULL,
     royalty_cents integer NOT NULL,
@@ -87,6 +88,13 @@ const DDL = [
     track text NOT NULL DEFAULT 'a',
     brand text NOT NULL DEFAULT 'addis',
     status text NOT NULL DEFAULT 'in_review',
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE TABLE IF NOT EXISTS waitlist (
+    id serial PRIMARY KEY,
+    work_id integer NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    collector_name text NOT NULL,
+    collector_email text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
 ];
@@ -429,6 +437,7 @@ const MIGRATIONS = [
   `ALTER TABLE works ADD COLUMN IF NOT EXISTS brand text NOT NULL DEFAULT 'addis'`,
   `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS brand text NOT NULL DEFAULT 'addis'`,
   `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS brand text NOT NULL DEFAULT 'addis'`,
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS edition_number integer`,
 ];
 
 let bootstrapPromise: Promise<void> | null = null;

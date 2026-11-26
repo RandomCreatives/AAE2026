@@ -172,9 +172,9 @@ export function RoyaltyCalculator({
           className="mt-3 w-full accent-[#c1502e]"
         />
         <div className="mt-2 flex justify-between mono text-[10px] text-ash">
-          <span>25% TRACK A</span>
-          <span>50% FOUNDING</span>
-          <span>70% GENEROUS</span>
+          <span>25% LOW</span>
+          <span>40% TRACK A</span>
+          <span>70% HIGH</span>
         </div>
 
         <div className="mt-8 border border-line">

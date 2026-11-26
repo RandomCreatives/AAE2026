@@ -1,7 +1,14 @@
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { artists, printOptions, reservations, submissions, works } from "@/db/schema";
+import {
+  artists,
+  printOptions,
+  reservations,
+  submissions,
+  waitlist,
+  works,
+} from "@/db/schema";
 import { ensureCatalogue } from "@/db/seed";
 import type { BrandKey } from "@/lib/brand";
 import type { CatalogueOption, OptionKind, SizeKey } from "@/lib/pricing";
@@ -92,7 +99,14 @@ export async function getArtistsWithCounts(
       editionsSold: sql<number>`coalesce(sum(${works.editionSold}), 0)::int`,
     })
     .from(artists)
-    .leftJoin(works, and(eq(works.artistId, artists.id), brand ? eq(works.brand, brand) : undefined))
+    .leftJoin(
+      works,
+      and(
+        eq(works.artistId, artists.id),
+        sql`${works.status} <> 'draft'`,
+        brand ? eq(works.brand, brand) : undefined,
+      ),
+    )
     .where(brandFilter)
     .groupBy(artists.id)
     .orderBy(asc(artists.sortOrder));
@@ -119,7 +133,6 @@ export async function getArtistBySlug(slug: string, brand?: BrandKey) {
   if (!artist) return null;
   const artistWorks = await getWorks({
     artistSlug: slug,
-    includeAll: true,
     brand: artist.brand as BrandKey,
   });
   return { artist, works: artistWorks };
@@ -143,30 +156,52 @@ export type ReservationInput = {
 };
 
 /** A short, self-identifying prefix for every certificate. */
-function reservationCode(brand: BrandKey): string {
+function reservationCode(): string {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let tail = "";
   for (let i = 0; i < 5; i += 1) {
     tail += alphabet[Math.floor(Math.random() * alphabet.length)];
   }
-  return `${brand === "addis" ? "ADD" : "PW"}-${tail}`;
+  return `ADD-${tail}`;
+}
+
+export class EditionClosedError extends Error {
+  constructor() {
+    super("This edition is closed.");
+    this.name = "EditionClosedError";
+  }
 }
 
 export async function createReservation(input: ReservationInput) {
   await ensureCatalogue();
-  const code = reservationCode(input.brand);
+  const code = reservationCode();
   const { size, ...rest } = input;
-  const rows = await db
-    .insert(reservations)
-    .values({ ...rest, sizeKey: size, code })
-    .returning();
 
-  await db
-    .update(works)
-    .set({ editionSold: sql`least(${works.editionSold} + ${input.quantity}, ${works.editionSize})` })
-    .where(eq(works.id, input.workId));
+  return db.transaction(async (tx) => {
+    const [work] = await tx
+      .select()
+      .from(works)
+      .where(eq(works.id, input.workId))
+      .for("update");
 
-  return rows[0];
+    if (!work || work.status === "sold-out") throw new EditionClosedError();
+
+    const remaining = work.editionSize - work.editionSold;
+    if (input.quantity > remaining) throw new EditionClosedError();
+
+    const editionNumber = work.editionSold + 1;
+    const [row] = await tx
+      .insert(reservations)
+      .values({ ...rest, sizeKey: size, code, editionNumber })
+      .returning();
+
+    await tx
+      .update(works)
+      .set({ editionSold: sql`${works.editionSold} + ${input.quantity}` })
+      .where(eq(works.id, input.workId));
+
+    return row;
+  });
 }
 
 export async function getReservations(
@@ -263,6 +298,48 @@ export async function getReservationByCode(
     artistName: row.artistName,
     artistRate: row.artistRate,
   };
+}
+
+export async function getReservationCount(brand?: BrandKey): Promise<number> {
+  await ensureCatalogue();
+  const [row] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(reservations)
+    .where(brand ? eq(reservations.brand, brand) : undefined);
+  return row?.count ?? 0;
+}
+
+export async function createWaitlistEntry(input: {
+  workId: number;
+  collectorName: string;
+  collectorEmail: string;
+}) {
+  await ensureCatalogue();
+  const [row] = await db.insert(waitlist).values(input).returning();
+  const [count] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(waitlist)
+    .where(eq(waitlist.workId, input.workId));
+  return { ...row, position: count?.total ?? 1 };
+}
+
+export async function getSubmissionByReference(reference: string) {
+  await ensureCatalogue();
+  const match = /^SUB-(\d+)$/.exec(reference.trim().toUpperCase());
+  if (!match) return null;
+  const [row] = await db
+    .select({
+      id: submissions.id,
+      artistName: submissions.artistName,
+      title: submissions.title,
+      track: submissions.track,
+      status: submissions.status,
+      createdAt: submissions.createdAt,
+    })
+    .from(submissions)
+    .where(eq(submissions.id, Number(match[1])))
+    .limit(1);
+  return row ?? null;
 }
 
 export type StudioTotals = {

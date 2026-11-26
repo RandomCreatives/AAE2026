@@ -23,7 +23,7 @@ const TRACKS = [
 ];
 
 export function SubmitWorkForm({
-  initialTrack = "b",
+  initialTrack = "a",
   brand,
   thankYouHref = "/works",
 }: {
@@ -80,14 +80,26 @@ export function SubmitWorkForm({
   if (done) {
     return (
       <div className="border border-moss/50 bg-moss/10 p-8">
-        <p className="eyebrow text-moss">Logged in the register</p>
+        <p className="eyebrow text-moss">Submission logged</p>
         <p className="display mt-4 text-4xl text-bone">{done.reference}</p>
         <p className="mt-5 text-[15px] leading-relaxed text-ash">
           Track {done.track.toUpperCase()} interest recorded. This is not a signature —
-          it is a flag that says &ldquo;let&apos;s talk numbers&rdquo;. I will come back
-          with a pricing sheet for the work you named, a paper recommendation, and two
-          edition options. Nothing gets printed until you have seen the margin on paper.
+          it is a flag that says &ldquo;let&apos;s talk numbers&rdquo;. The house will come
+          back with a pricing sheet for the work you named, a paper recommendation, and
+          two edition options. Nothing gets printed until you have seen the margin on
+          paper.
         </p>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <a href={`/status?ref=${encodeURIComponent(done.reference)}`} className="btn-ghost">
+            Check its status
+          </a>
+          <a
+            className="btn-ghost"
+            href={`mailto:${brand.email}?subject=${encodeURIComponent(`Submission ${done.reference} — file handoff`)}&body=${encodeURIComponent(`Reference: ${done.reference}\n\nThe work is ready for review. I will attach the 300dpi TIF/PSD and colour profile in the next message.`)}`}
+          >
+            Email the file details
+          </a>
+        </div>
         <p className="mono mt-6 text-ash">
           NEXT: BRING THE FILE · 300DPI MINIMUM, TIF OR PSD, COLOUR PROFILE ATTACHED
         </p>
