@@ -106,6 +106,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                   <Link className="link hover:text-bone" href="/status">
                     Check a submission
                   </Link>{" "}
+                  ·{" "}
+                  <Link className="link hover:text-bone" href="/admin/ledger">
+                    Order ledger
+                  </Link>{" "}
                   · COPYRIGHT STAYS WITH THE ARTIST
                 </span>
               </div>

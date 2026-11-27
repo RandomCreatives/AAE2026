@@ -45,6 +45,8 @@ export const works = pgTable("works", {
   discipline: text("discipline").notNull(),
   originalMedium: text("original_medium").notNull(),
   note: text("note").notNull(),
+  /** open = unlimited, limited = capped run, original = unique 1/1. */
+  itemMode: text("item_mode").notNull().default("limited"),
   editionSize: integer("edition_size").notNull(),
   editionSold: integer("edition_sold").notNull().default(0),
   image: text("image").notNull(),
@@ -87,15 +89,23 @@ export const reservations = pgTable("reservations", {
   frameSlug: text("frame_slug"),
   quantity: integer("quantity").notNull().default(1),
   editionNumber: integer("edition_number"),
+  serialNumber: text("serial_number").unique(),
   unitCents: integer("unit_cents").notNull(),
   productionCents: integer("production_cents").notNull(),
   royaltyCents: integer("royalty_cents").notNull(),
   studioCents: integer("studio_cents").notNull(),
+  deliveryFeeCents: integer("delivery_fee_cents").notNull().default(0),
+  gatewayFeeCents: integer("gateway_fee_cents").notNull().default(0),
+  netProfitCents: integer("net_profit_cents").notNull().default(0),
+  splitRate: integer("split_rate").notNull().default(60),
+  artistShareCents: integer("artist_share_cents").notNull().default(0),
+  studioShareCents: integer("studio_share_cents").notNull().default(0),
   collectorName: text("collector_name").notNull(),
   collectorEmail: text("collector_email").notNull(),
   note: text("note"),
   brand: text("brand").notNull().default("addis"),
-  status: text("status").notNull().default("reserved"),
+  /** pending → in_production → delivered → artist_paid. */
+  status: text("status").notNull().default("pending"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

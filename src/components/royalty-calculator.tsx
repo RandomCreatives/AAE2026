@@ -165,7 +165,7 @@ export function RoyaltyCalculator({
         <input
           type="range"
           min={25}
-          max={70}
+          max={80}
           step={5}
           value={effectiveRate}
           onChange={(e) => setRate(Number(e.target.value))}
@@ -173,8 +173,8 @@ export function RoyaltyCalculator({
         />
         <div className="mt-2 flex justify-between mono text-[10px] text-ash">
           <span>25% LOW</span>
-          <span>40% TRACK A</span>
-          <span>70% HIGH</span>
+          <span>60% PRINTS</span>
+          <span>80% ORIGINAL</span>
         </div>
 
         <div className="mt-8 border border-line">

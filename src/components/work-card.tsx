@@ -76,6 +76,14 @@ export function WorkCard({
           <span className="absolute left-4 top-4 border border-bone/60 bg-ink/80 px-2 py-1 mono text-[10px] tracking-[0.2em] text-bone">
             EDITION CLOSED
           </span>
+        ) : work.itemMode === "original" ? (
+          <span className="absolute left-4 top-4 border border-bone/60 bg-ink/80 px-2 py-1 mono text-[10px] tracking-[0.2em] text-bone">
+            UNIQUE 1/1
+          </span>
+        ) : work.itemMode === "open" ? (
+          <span className="absolute left-4 top-4 border border-bone/60 bg-ink/80 px-2 py-1 mono text-[10px] tracking-[0.2em] text-bone">
+            OPEN EDITION
+          </span>
         ) : null}
         <span className="absolute bottom-3 right-3 mono text-[10px] tracking-[0.2em] text-bone/70">
           {sizeSpec("a2").label} REF · {brand.currency.code}
@@ -91,7 +99,13 @@ export function WorkCard({
         </div>
         <div className="text-right">
           <p className="mono text-bone">from {money(fromCents)}</p>
-          <p className="mono mt-2 text-ash">{remaining} / {work.editionSize} left</p>
+          <p className="mono mt-2 text-ash">
+            {work.itemMode === "original"
+              ? "one existing work"
+              : work.itemMode === "open"
+                ? "printed to order"
+                : `${remaining} / ${work.editionSize} left`}
+          </p>
         </div>
       </div>
       <div className="flex items-center justify-between border-t border-line px-5 py-3 mono text-[10px] tracking-[0.16em] text-ash">

@@ -155,6 +155,48 @@ export function computeQuote(input: QuoteInput): Quote {
   };
 }
 
+export type OrderMode = "open" | "limited" | "original";
+
+export function artistSplitRate(mode: OrderMode): number {
+  return mode === "original" ? 80 : 60;
+}
+
+export type OrderLedger = {
+  deliveryFeeCents: number;
+  gatewayFeeCents: number;
+  netProfitCents: number;
+  splitRate: number;
+  artistShareCents: number;
+  studioShareCents: number;
+};
+
+/** The contractual split at order completion, after every cost leaves the pot. */
+export function computeOrderLedger(input: {
+  retailCents: number;
+  productionCents: number;
+  mode: OrderMode;
+  deliveryFeeCents: number;
+  gatewayFeeCents: number;
+}): OrderLedger {
+  const netProfitCents = Math.max(
+    0,
+    input.retailCents -
+      input.productionCents -
+      input.deliveryFeeCents -
+      input.gatewayFeeCents,
+  );
+  const splitRate = artistSplitRate(input.mode);
+  const artistShareCents = Math.round((netProfitCents * splitRate) / 100);
+  return {
+    deliveryFeeCents: input.deliveryFeeCents,
+    gatewayFeeCents: input.gatewayFeeCents,
+    netProfitCents,
+    splitRate,
+    artistShareCents,
+    studioShareCents: netProfitCents - artistShareCents,
+  };
+}
+
 export function groupByKind(options: CatalogueOption[]) {
   const papers = options.filter((o) => o.kind === "paper");
   const mounts = options.filter((o) => o.kind === "mount");

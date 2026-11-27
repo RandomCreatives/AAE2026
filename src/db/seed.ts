@@ -32,6 +32,7 @@ const DDL = [
     discipline text NOT NULL,
     original_medium text NOT NULL,
     note text NOT NULL,
+    item_mode text NOT NULL DEFAULT 'limited',
     edition_size integer NOT NULL,
     edition_sold integer NOT NULL DEFAULT 0,
     image text NOT NULL,
@@ -63,15 +64,22 @@ const DDL = [
     frame_slug text,
     quantity integer NOT NULL DEFAULT 1,
     edition_number integer,
+    serial_number text UNIQUE,
     unit_cents integer NOT NULL,
     production_cents integer NOT NULL,
     royalty_cents integer NOT NULL,
     studio_cents integer NOT NULL,
+    delivery_fee_cents integer NOT NULL DEFAULT 0,
+    gateway_fee_cents integer NOT NULL DEFAULT 0,
+    net_profit_cents integer NOT NULL DEFAULT 0,
+    split_rate integer NOT NULL DEFAULT 60,
+    artist_share_cents integer NOT NULL DEFAULT 0,
+    studio_share_cents integer NOT NULL DEFAULT 0,
     collector_name text NOT NULL,
     collector_email text NOT NULL,
     note text,
     brand text NOT NULL DEFAULT 'addis',
-    status text NOT NULL DEFAULT 'reserved',
+    status text NOT NULL DEFAULT 'pending',
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
   `CREATE TABLE IF NOT EXISTS submissions (
@@ -108,6 +116,7 @@ type WorkSeed = {
   discipline: string;
   originalMedium: string;
   note: string;
+  itemMode?: "open" | "limited" | "original";
   editionSize: number;
   editionSold: number;
   image: string;
@@ -126,7 +135,7 @@ const ARTIST_SEED = [
     practice: "Oil and gouache on canvas",
     location: "Addis Ababa",
     bio: "Paints the lattice of the Meskel crosses her grandfather drew for a church in Gondar — ochre and indigo, one deliberate gap in every grid. Editions are printed from drum scans that keep the paint's ridges.",
-    royaltyRate: 50,
+    royaltyRate: 60,
     isFounding: true,
     brand: "addis",
     sortOrder: 10,
@@ -139,7 +148,7 @@ const ARTIST_SEED = [
     practice: "Ink, oxide and coffee wash on paper",
     location: "Gondar",
     bio: "One breath, one sweep. Works at dawn because the ink behaves differently before the heat arrives. The originals take minutes; the proofs take weeks.",
-    royaltyRate: 50,
+    royaltyRate: 60,
     isFounding: true,
     brand: "addis",
     sortOrder: 11,
@@ -152,7 +161,7 @@ const ARTIST_SEED = [
     practice: "Large-format photography",
     location: "Addis Ababa / Nairobi",
     bio: "Photographs the rift when the water has gone, and corridors at the hour the light comes in sideways. Prints small editions on baryta, colour-managed against the house monitor.",
-    royaltyRate: 45,
+    royaltyRate: 60,
     isFounding: true,
     brand: "addis",
     sortOrder: 12,
@@ -165,7 +174,7 @@ const ARTIST_SEED = [
     practice: "Collage and two-colour overprint",
     location: "Khartoum",
     bio: "Torn arches and deliberate misregistration — teal against a pink that has no business working. The first artist the house invited without ever meeting her in person.",
-    royaltyRate: 40,
+    royaltyRate: 60,
     isFounding: false,
     brand: "addis",
     sortOrder: 13,
@@ -266,7 +275,8 @@ const WORK_SEED: WorkSeed[] = [
     year: 2025,
     discipline: "Digital",
     originalMedium: "Chromatic study, 12-bit gradient field",
-    note: "The hour the highland light changes its mind. Born digital, printed like film.",
+    note: "The hour the highland light changes its mind. Born digital, printed like film. Printed to order, with no cap on the run.",
+    itemMode: "open",
     editionSize: 100,
     editionSold: 9,
     image: "/art/studio-meridian.jpg",
@@ -308,6 +318,24 @@ const WORK_SEED: WorkSeed[] = [
     basePriceCents: 590_000,
     status: "sold-out",
     sortOrder: 17,
+  },
+  {
+    brand: "addis",
+    slug: "mercato-original",
+    artistSlug: "meron-tadesse",
+    title: "Night, Mercato — original plate",
+    year: 2023,
+    discipline: "Original",
+    originalMedium: "Etching plate, ink and burnishing on copper, 60 × 60 cm",
+    note: "The single plate the edition was pulled from. One owner, one certificate, no reprint.",
+    itemMode: "original",
+    editionSize: 1,
+    editionSold: 0,
+    image: "/art/ravi-nocturne.jpg",
+    orientation: "square",
+    basePriceCents: 1_850_000,
+    status: "live",
+    sortOrder: 18,
   },
 ];
 
@@ -438,6 +466,23 @@ const MIGRATIONS = [
   `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS brand text NOT NULL DEFAULT 'addis'`,
   `ALTER TABLE submissions ADD COLUMN IF NOT EXISTS brand text NOT NULL DEFAULT 'addis'`,
   `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS edition_number integer`,
+  `ALTER TABLE works ADD COLUMN IF NOT EXISTS item_mode text NOT NULL DEFAULT 'limited'`,
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS serial_number text UNIQUE`,
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS delivery_fee_cents integer NOT NULL DEFAULT 0`,
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS gateway_fee_cents integer NOT NULL DEFAULT 0`,
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS net_profit_cents integer NOT NULL DEFAULT 0`,
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS split_rate integer NOT NULL DEFAULT 60`,
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS artist_share_cents integer NOT NULL DEFAULT 0`,
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS studio_share_cents integer NOT NULL DEFAULT 0`,
+  `ALTER TABLE reservations ALTER COLUMN status SET DEFAULT 'pending'`,
+  `UPDATE reservations SET status = 'pending' WHERE status = 'reserved'`,
+  `UPDATE artists SET royalty_rate = 60 WHERE brand = 'addis' AND royalty_rate <> 60`,
+  `UPDATE works SET item_mode = 'open' WHERE slug = 'terminus-meridian' AND item_mode = 'limited'`,
+  `UPDATE works SET item_mode = 'original', edition_size = 1 WHERE slug = 'mercato-original' AND item_mode = 'limited'`,
+  `INSERT INTO works (slug, artist_id, title, year, discipline, original_medium, note, item_mode, edition_size, edition_sold, image, orientation, base_price_cents, status, brand, sort_order)
+   SELECT 'mercato-original', id, 'Night, Mercato — original plate', 2023, 'Original', 'Etching plate, ink and burnishing on copper, 60 × 60 cm', 'The single plate the edition was pulled from. One owner, one certificate, no reprint.', 'original', 1, 0, '/art/ravi-nocturne.jpg', 'square', 1850000, 'live', 'addis', 18
+   FROM artists WHERE slug = 'meron-tadesse'
+   AND NOT EXISTS (SELECT 1 FROM works WHERE slug = 'mercato-original')`,
 ];
 
 let bootstrapPromise: Promise<void> | null = null;

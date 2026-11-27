@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, ne, sql } from "drizzle-orm";
 
 import { db } from "@/db";
 import {
@@ -10,8 +10,15 @@ import {
   works,
 } from "@/db/schema";
 import { ensureCatalogue } from "@/db/seed";
+import type { ReservationStatus } from "@/lib/order-status";
 import type { BrandKey } from "@/lib/brand";
-import type { CatalogueOption, OptionKind, SizeKey } from "@/lib/pricing";
+import {
+  computeOrderLedger,
+  type CatalogueOption,
+  type OptionKind,
+  type OrderMode,
+  type SizeKey,
+} from "@/lib/pricing";
 
 export type ArtistRow = typeof artists.$inferSelect;
 export type WorkRow = typeof works.$inferSelect;
@@ -141,6 +148,9 @@ export async function getArtistBySlug(slug: string, brand?: BrandKey) {
 export type ReservationInput = {
   brand: BrandKey;
   workId: number;
+  itemMode: OrderMode;
+  deliveryFeeCents: number;
+  gatewayFeeCents: number;
   size: SizeKey;
   paperSlug: string;
   mountSlug: string | null;
@@ -166,8 +176,8 @@ function reservationCode(): string {
 }
 
 export class EditionClosedError extends Error {
-  constructor() {
-    super("This edition is closed.");
+  constructor(message = "This edition is closed.") {
+    super(message);
     this.name = "EditionClosedError";
   }
 }
@@ -175,7 +185,14 @@ export class EditionClosedError extends Error {
 export async function createReservation(input: ReservationInput) {
   await ensureCatalogue();
   const code = reservationCode();
-  const { size, ...rest } = input;
+  const { size, itemMode, deliveryFeeCents, gatewayFeeCents, ...rest } = input;
+  const ledger = computeOrderLedger({
+    retailCents: input.unitCents * input.quantity,
+    productionCents: input.productionCents * input.quantity,
+    mode: itemMode,
+    deliveryFeeCents,
+    gatewayFeeCents,
+  });
 
   return db.transaction(async (tx) => {
     const [work] = await tx
@@ -186,18 +203,59 @@ export async function createReservation(input: ReservationInput) {
 
     if (!work || work.status === "sold-out") throw new EditionClosedError();
 
-    const remaining = work.editionSize - work.editionSold;
-    if (input.quantity > remaining) throw new EditionClosedError();
+    let editionNumber: number | null = null;
+    if (itemMode === "original") {
+      const [held] = await tx
+        .select({ id: reservations.id })
+        .from(reservations)
+        .where(
+          and(
+            eq(reservations.workId, work.id),
+            ne(reservations.status, "cancelled"),
+          ),
+        )
+        .limit(1);
+      if (held) throw new EditionClosedError("This original is already held.");
+      editionNumber = 1;
+    } else if (itemMode === "limited") {
+      const remaining = work.editionSize - work.editionSold;
+      if (input.quantity > remaining) throw new EditionClosedError();
+      editionNumber = work.editionSold + 1;
+    }
 
-    const editionNumber = work.editionSold + 1;
-    const [row] = await tx
+    const [inserted] = await tx
       .insert(reservations)
-      .values({ ...rest, sizeKey: size, code, editionNumber })
+      .values({
+        ...rest,
+        sizeKey: size,
+        code,
+        editionNumber,
+        deliveryFeeCents,
+        gatewayFeeCents,
+        netProfitCents: ledger.netProfitCents,
+        splitRate: ledger.splitRate,
+        artistShareCents: Math.round(ledger.artistShareCents / input.quantity),
+        studioShareCents: Math.round(ledger.studioShareCents / input.quantity),
+        royaltyCents: Math.round(ledger.artistShareCents / input.quantity),
+        studioCents: Math.round(ledger.studioShareCents / input.quantity),
+      })
+      .returning();
+
+    const serialNumber = `AM-${new Date().getFullYear()}-${String(inserted.id).padStart(4, "0")}`;
+    const [row] = await tx
+      .update(reservations)
+      .set({ serialNumber })
+      .where(eq(reservations.id, inserted.id))
       .returning();
 
     await tx
       .update(works)
-      .set({ editionSold: sql`${works.editionSold} + ${input.quantity}` })
+      .set({
+        editionSold:
+          itemMode === "original"
+            ? sql`1`
+            : sql`${works.editionSold} + ${input.quantity}`,
+      })
       .where(eq(works.id, input.workId));
 
     return row;
@@ -297,6 +355,49 @@ export async function getReservationByCode(
     editionSize: row.editionSize,
     artistName: row.artistName,
     artistRate: row.artistRate,
+  };
+}
+
+export { RESERVATION_STATUSES } from "@/lib/order-status";
+export type { ReservationStatus } from "@/lib/order-status";
+
+export async function updateReservationStatus(
+  id: number,
+  status: ReservationStatus,
+) {
+  await ensureCatalogue();
+  const [row] = await db
+    .update(reservations)
+    .set({ status })
+    .where(eq(reservations.id, id))
+    .returning();
+  return row ?? null;
+}
+
+export async function getReservationBySerial(serialNumber: string) {
+  await ensureCatalogue();
+  const [row] = await db
+    .select({
+      reservation: reservations,
+      workTitle: works.title,
+      workSlug: works.slug,
+      artistName: artists.name,
+      editionSize: works.editionSize,
+      itemMode: works.itemMode,
+    })
+    .from(reservations)
+    .innerJoin(works, eq(reservations.workId, works.id))
+    .innerJoin(artists, eq(works.artistId, artists.id))
+    .where(eq(reservations.serialNumber, serialNumber.trim().toUpperCase()))
+    .limit(1);
+  if (!row) return null;
+  return {
+    ...row.reservation,
+    workTitle: row.workTitle,
+    workSlug: row.workSlug,
+    artistName: row.artistName,
+    editionSize: row.editionSize,
+    itemMode: row.itemMode,
   };
 }
 

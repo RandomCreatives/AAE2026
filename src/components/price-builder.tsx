@@ -8,6 +8,7 @@ import {
   computeQuote,
   SIZES,
   type CatalogueOption,
+  type OrderMode,
   type SizeKey,
 } from "@/lib/pricing";
 
@@ -19,6 +20,7 @@ type WorkProps = {
   note: string;
   image: string;
   orientation: string;
+  itemMode: OrderMode;
   editionSize: number;
   editionSold: number;
   basePriceCents: number;
@@ -122,6 +124,7 @@ export function PriceBuilder({
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     code: string;
+    serialNumber: string | null;
     editionNumber: number;
     editionRange: string | null;
     retailLabel: string;
@@ -150,6 +153,10 @@ export function PriceBuilder({
 
   const remaining = Math.max(work.editionSize - work.editionSold, 0);
   const soldOut = work.status === "sold-out" || remaining === 0;
+  const isOriginal = work.itemMode === "original";
+  const displayRetail = isOriginal
+    ? Math.round(work.basePriceCents * brand.scale)
+    : quote?.retailCents ?? 0;
 
   const aspect =
     work.orientation === "portrait"
@@ -211,6 +218,7 @@ export function PriceBuilder({
       const payload = (await response.json()) as {
         error?: string;
         code?: string;
+        serialNumber?: string | null;
         editionNumber?: number;
         editionRange?: string | null;
         retailLabel?: string;
@@ -221,6 +229,7 @@ export function PriceBuilder({
       } else if (payload.code) {
         setResult({
           code: payload.code,
+          serialNumber: payload.serialNumber ?? null,
           editionNumber: payload.editionNumber ?? 0,
           editionRange: payload.editionRange ?? null,
           retailLabel: payload.retailLabel ?? "",
@@ -290,6 +299,20 @@ export function PriceBuilder({
         <p className="eyebrow text-oxide">{artist.name} · {work.year}</p>
         <h1 className="display mt-3 text-4xl text-bone md:text-5xl">{work.title}</h1>
 
+        {isOriginal ? (
+          <div className="mt-8 border border-oxide/60 bg-oxide/5 p-5">
+            <p className="eyebrow text-oxide">Unique original · one of one</p>
+            <p className="mt-3 text-sm leading-relaxed text-ash">
+              This is the physical work, not a print. Size, paper, mount and frame
+              options do not apply. The first hold locks it for this house alone.
+            </p>
+            <p className="display mt-4 text-3xl text-bone">
+              {money(displayRetail)}
+            </p>
+          </div>
+        ) : null}
+
+        <div className={isOriginal ? "hidden" : ""}>
         {/* sizes */}
         <div className="mt-8">
           <p className="eyebrow">Size</p>
@@ -454,6 +477,8 @@ export function PriceBuilder({
           </div>
         </div>
 
+        </div>
+
         {/* reserve */}
         <div className="mt-6 border border-line p-5">
           {waitlisted ? (
@@ -476,21 +501,36 @@ export function PriceBuilder({
             <div className="border border-moss/50 bg-moss/10 p-6">
               <p className="eyebrow text-moss">Reserved</p>
               <p className="display mt-3 text-3xl text-bone">{result.code}</p>
+              {result.serialNumber ? (
+                <p className="mono mt-2 text-oxide">CERTIFICATE {result.serialNumber}</p>
+              ) : null}
               <p className="mt-4 text-sm leading-relaxed text-ash">
-                {result.quantity > 1
-                  ? `${result.quantity} prints`
-                  : "One print"}{" "}
-                of <span className="text-bone">{work.title}</span> are held for you at{" "}
-                {result.retailLabel}. Edition{" "}
-                <span className="text-bone">
-                  {result.editionRange ?? result.editionNumber} / {work.editionSize}
-                </span>{" "}
-                is now logged in the house register. The studio emails within 24 hours
-                to confirm paper, glazing and delivery.
+                {isOriginal
+                  ? `The unique original of `
+                  : result.quantity > 1
+                    ? `${result.quantity} prints of `
+                    : "One print of "}
+                <span className="text-bone">{work.title}</span> is held for you at{" "}
+                {result.retailLabel}.{" "}
+                {result.editionRange
+                  ? `Edition ${result.editionRange} / ${work.editionSize} is `
+                  : ""}
+                logged in the house register. The studio emails within 24 hours to
+                confirm paper, glazing and delivery.
               </p>
-              <a href={`${brand.base}/works`} className="btn-ghost mt-6">
-                Back to the shelf
-              </a>
+              <div className="mt-6 flex flex-wrap gap-3">
+                {result.serialNumber ? (
+                  <a
+                    href={`/verify/${result.serialNumber}`}
+                    className="btn-ghost"
+                  >
+                    View certificate
+                  </a>
+                ) : null}
+                <a href={`${brand.base}/works`} className="btn-ghost">
+                  Back to the shelf
+                </a>
+              </div>
             </div>
           ) : (
             <>
@@ -537,7 +577,7 @@ export function PriceBuilder({
                     : "Holding your print…"
                   : soldOut
                     ? "Join the waiting list"
-                    : `Reserve · ${money(quote.retailCents * quantity)}`}
+                    : `Reserve · ${money(displayRetail * quantity)}`}
               </button>
             </>
           )}

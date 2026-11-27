@@ -65,6 +65,7 @@ export default async function AddisWorkPage({
             note: row.work.note,
             image: row.work.image,
             orientation: row.work.orientation,
+            itemMode: row.work.itemMode as "open" | "limited" | "original",
             editionSize: row.work.editionSize,
             editionSold: row.work.editionSold,
             basePriceCents: row.work.basePriceCents,

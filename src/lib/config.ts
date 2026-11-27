@@ -23,6 +23,13 @@ export const STUDIO = {
   printLabourCents: 1_450_00, // ink + operator time at A2 reference
 } as const;
 
+export const FEES = {
+  /** Flat insured delivery allowance charged against the margin at order time. */
+  deliveryCents: 1_200,
+  /** Card + settlement fee, in basis points of the retail total. */
+  gatewayBasisPoints: 250,
+} as const;
+
 export function formatMoney(cents: number): string {
   const value = cents / 100;
   return `${CURRENCY.symbol}${value.toLocaleString("en-US", {

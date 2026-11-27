@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { ADDIS, brandMoney } from "@/lib/brand";
+import { STATUS_LABELS, type ReservationStatus } from "@/lib/order-status";
 import {
   getCatalogueOptions,
   getReservationByCode,
@@ -131,6 +132,7 @@ export default async function AddisRegisterPage({
                     <p className="display mt-3 text-3xl text-bone">{found.code}</p>
                     <div className="mt-5 divide-y divide-line">
                       {[
+                        ["Certificate", found.serialNumber ?? "—"],
                         ["Work", found.workTitle],
                         ["Artist", found.artistName],
                         ["Edition", editionLabel(found)],
@@ -145,7 +147,11 @@ export default async function AddisRegisterPage({
                             year: "numeric",
                           }),
                         ],
-                        ["Status", found.status === "reserved" ? "Held" : found.status],
+                        [
+                          "Status",
+                          STATUS_LABELS[found.status as ReservationStatus] ??
+                            found.status,
+                        ],
                       ].map(([k, v]) => (
                         <div key={k} className="flex items-baseline justify-between py-3">
                           <span className="mono text-ash">{k.toUpperCase()}</span>
@@ -156,12 +162,22 @@ export default async function AddisRegisterPage({
                     <p className="mono mt-5 text-ash">
                       THIS ENTRY IS PERMANENT. THE CODE IS NEVER REISSUED.
                     </p>
-                    <Link
-                      href={`/works/${found.workSlug}`}
-                      className="btn-ghost mt-5"
-                    >
-                      View the edition
-                    </Link>
+                    <div className="mt-5 flex flex-wrap gap-3">
+                      {found.serialNumber ? (
+                        <Link
+                          href={`/verify/${found.serialNumber}`}
+                          className="btn-ghost"
+                        >
+                          Verify certificate
+                        </Link>
+                      ) : null}
+                      <Link
+                        href={`/works/${found.workSlug}`}
+                        className="btn-ghost"
+                      >
+                        View the edition
+                      </Link>
+                    </div>
                   </div>
                 ) : (
                   <div className="mt-6 border border-oxide/60 bg-oxide/10 p-6">

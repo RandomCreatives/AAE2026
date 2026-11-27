@@ -40,6 +40,8 @@ creates its tables and loads the Addis artists, editions and print options.
 | `/about` | The model, rules, risks, calculator |
 | `/submit` | Artist submissions |
 | `/status` | Check a submission by its `SUB-…` reference |
+| `/verify/[serialNumber]` | Public certificate provenance (`AM-2026-XXXX`) |
+| `/admin/ledger` | Order states, payout splits and certificate serials |
 
 ## Where things live
 
@@ -52,8 +54,13 @@ creates its tables and loads the Addis artists, editions and print options.
   Catalogue prices are authored in the operating currency; `scale` converts every
   line into USD.
 - `src/app/globals.css` — every colour is a CSS custom property under `.brand-addis`.
+- `src/lib/pricing.ts` also owns the order ledger: `retail − production − delivery −
+  gateway fee = net profit`, split 60/40 on prints and 80/20 on originals.
 - `src/db/schema.ts`, `src/db/seed.ts` — tables and the self-healing bootstrap.
-  Reservation codes are prefixed `ADD-` so a certificate is self-identifying.
+  Works have an `itemMode` of `open`, `limited` or `original`; limited runs use a
+  row-locked counter so a reservation cannot oversell the cap. Reservations carry
+  an `AM-YYYY-NNNN` serial and move through Pending → In production → Delivered →
+  Artist paid. Codes are prefixed `ADD-`.
 
 ## Replacing the placeholder art
 

@@ -8,12 +8,12 @@ const TRACKS = [
   {
     key: "a",
     label: "A · Published artist",
-    hint: "40% of margin, zero upfront, invited in batches of five.",
+    hint: "60% of margin on prints, zero upfront, invited in batches of five.",
   },
   {
     key: "b",
     label: "B · Founding artist",
-    hint: "50% of margin for life, first position on the shelf, 2 slots ever.",
+    hint: "60% of margin on prints for life, first position on the shelf, 2 slots ever.",
   },
   {
     key: "c",

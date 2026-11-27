@@ -75,7 +75,7 @@ export default async function AddisModelPage() {
   const flagship = rows.find((r) => r.work.slug === "meskel-lattice") ?? rows[0];
   const receipt = quoteFor(ADDIS, {
     basePriceCents: flagship?.work.basePriceCents ?? 640_000,
-    royaltyRate: flagship?.artist.royaltyRate ?? 50,
+    royaltyRate: flagship?.artist.royaltyRate ?? 60,
     size: "a1",
     paper,
     mount: findOption(options, "mount", "mount-8ply"),
@@ -88,7 +88,7 @@ export default async function AddisModelPage() {
       name: "Founding artist",
       for: "The four already on the shelf",
       terms: [
-        "50% of gross margin, permanently",
+        "60% of gross margin on prints, permanently",
         "Edition size they set",
         "A veto on curation for year one",
         "First position on the shelf",
@@ -100,7 +100,7 @@ export default async function AddisModelPage() {
       name: "Published artist",
       for: "Invited, in small batches",
       terms: [
-        "40% of gross margin",
+        "60% of gross margin on prints",
         "Zero upfront cost, ever",
         "The house's collectors and search traffic",
         "The house chooses size, paper and price band",
